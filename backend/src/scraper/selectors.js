@@ -2,67 +2,61 @@
  * SELECTOR CONFIG — the only file you should need to edit to match the real
  * DOM of https://demo.inelabteamdev.com/.
  *
- * Why this is separate: the assignment's own grading criterion is "change
- * detection that flags when the store's page structure changes" (bonus) and
- * "correctness under difficulty" (core). Keeping every CSS selector in one
- * place means (a) a structure change only breaks one file, (b) the scraper
- * can validate that these selectors still resolve before trusting the data
- * they return, and (c) you can update this after running Playwright's own
- * inspector against the live site, without touching the retry/logging logic.
+ * Selectors were derived by inspecting the store's CSS bundle and JS bundle
+ * at build time. Re-run `npx playwright codegen https://demo.inelabteamdev.com/`
+ * if the store's markup ever changes.
  *
- * HOW TO FILL THIS IN (2 minutes, one-time):
- *   cd backend
- *   npx playwright install chromium   # first time only
- *   npx playwright codegen https://demo.inelabteamdev.com/
- * Playwright opens a real browser + an inspector. Click through: search a
- * product, open its page, pick an option. Codegen prints the selectors it
- * used for each click — copy the ones that match the fields below.
- *
- * Every selector below is a best-effort placeholder based on how sites like
- * this are conventionally structured. They are marked so grep can find them.
+ * Key facts about this store:
+ *  - Routes: / (catalogue) and /item/:id (product page)
+ *  - Prices are lazy-loaded: the .price-value block is injected after the
+ *    user hovers or interacts with the offer panel — the scraper triggers
+ *    this by hovering over .offer-panel.
+ *  - Prices are in Rs (Indian Rupees): "Rs.1234"
+ *  - Stock is shown as .avail-yes / .avail-no pills on the product page.
+ *  - Options (size, colour, pack) are rendered as .opt-chip buttons.
  */
 
 module.exports = {
   baseUrl: process.env.STORE_BASE_URL || 'https://demo.inelabteamdev.com',
 
   search: {
-    // Input the user types a product name into on the store's search/listing page.
-    inputSelector: 'input[type="search"], input[placeholder*="search" i]', // VERIFY
-    resultItemSelector: '[data-testid="product-card"], .product-card, li.product', // VERIFY
-    resultNameSelector: '.product-card__name, [data-testid="product-name"], h3', // VERIFY
-    resultLinkSelector: 'a', // relative to resultItemSelector, VERIFY
+    // The catalogue page has a single text input for filtering products.
+    // It does not use type="search" or a placeholder containing "search".
+    inputSelector: 'input',
+
+    // Each product is a .card element in the shelf grid.
+    resultItemSelector: '.card',
+
+    // Product name and link inside each card.
+    resultNameSelector: '.card-title',
+    resultLinkSelector: 'a',
   },
 
   productPage: {
-    // Anything the scraper waits for before it trusts the page has finished
-    // its async load. This is the single most important selector: the
-    // assignment says "some content loads asynchronously after a short
-    // delay" — waiting on a fixed sleep() is what makes scrapers flaky.
-    readySelector: '[data-testid="price"], .price, .product-price', // VERIFY
+    // Wait for the offer panel to appear before trusting the page has loaded.
+    // The price itself is lazy — it won't be visible until we hover .offer-panel.
+    readySelector: '.offer-panel, .opt-picker, .card-title',
 
-    // The store-assigned product ID, as it appears in the product page URL,
-    // e.g. https://demo.inelabteamdev.com/products/SKU12345 -> "SKU12345".
-    // extractIdFromUrl() below does the actual parsing; adjust the regex
-    // if the real URL shape differs (e.g. a query param instead of a path segment).
-    idFromUrlPattern: /\/products?\/([A-Za-z0-9_-]+)/,
+    // URL shape: https://demo.inelabteamdev.com/item/SKU123 → "SKU123"
+    idFromUrlPattern: /\/item\/([A-Za-z0-9_-]+)/,
 
-    // Option picker, e.g. a storage-size or pack-size selector/dropdown/buttons.
-    optionListSelector: '[data-testid="option"], .option-select button, select.options option', // VERIFY
-    optionLabelSelector: null, // if options are <select><option>, the option text IS the label; else set a selector relative to optionListSelector
+    // Options are rendered as .opt-chip buttons (colour, size, pack, etc.)
+    optionListSelector: '.opt-chip',
+    optionLabelSelector: null, // opt-chip text content IS the label
 
-    priceSelector: '[data-testid="price"], .price, .product-price', // VERIFY
-    stockSelector: '[data-testid="stock"], .stock, .availability', // VERIFY
+    // Price is in .price-value, but requires hovering .offer-panel first
+    // to trigger the lazy load. The scraper hovers before reading.
+    priceSelector: '.price-value',
+    stockSelector: '.avail-yes, .avail-no, .avail-pill',
 
-    // Text fragments that should NEVER simultaneously be absent on a healthy
-    // page. If none of these resolve, we assume the page structure changed
-    // rather than assuming the product is simply out of stock or priceless.
-    structuralCanaries: ['[data-testid="price"]', '.price', '.product-price'],
+    // Structural canaries: at least one of these must exist on a healthy page.
+    structuralCanaries: ['.offer-panel', '.opt-picker', '.card-title'],
   },
 
   timeouts: {
-    navigationMs: 20000,
-    readySelectorMs: 12000, // generous, since content "loads asynchronously after a short delay"
-    perAttemptMs: 30000,
+    navigationMs: 30000,
+    readySelectorMs: 15000,
+    perAttemptMs: 45000,
   },
 };
 

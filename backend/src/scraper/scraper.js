@@ -69,6 +69,13 @@ async function scrapeProduct({ productUrl, optionLabel, headless = true, onAttem
           timeout: config.timeouts.readySelectorMs,
         });
 
+        // The store lazy-loads price on hover — trigger it before reading.
+        const offerPanel = await page.$('.offer-panel');
+        if (offerPanel) {
+          await offerPanel.hover().catch(() => {});
+          await page.waitForTimeout(1500); // wait for price to inject
+        }
+
         // Structural canary check: if we can't find ANY of the known price
         // containers, treat this as a probable markup change, not as
         // "price is empty" — we must never silently store a blank price.
