@@ -11,7 +11,17 @@ router.get('/', async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q) return res.status(400).json({ error: 'query param "q" is required' });
 
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--no-zygote',
+      '--single-process',
+    ],
+  });
   try {
     const page = await browser.newPage();
     await page.goto(config.baseUrl, { timeout: config.timeouts.navigationMs, waitUntil: 'domcontentloaded' });
