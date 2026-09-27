@@ -25,7 +25,7 @@ function sleep(ms) {
  *    unavailable).
  */
 async function scrapeProduct({ productUrl, optionLabel, headless = true, onAttempt }) {
-  const browser = await chromium.launch({ headless });
+  const browser = await chromium.launch({ headless, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   let lastError = null;
 
   try {
